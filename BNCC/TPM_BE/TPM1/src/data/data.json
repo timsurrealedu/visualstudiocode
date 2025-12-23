@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "title": "Hello World",
+    "snippet": "printf(\"Hello World\");"
+  },
+  {
+    "id": 2,
+    "title": "Hello World!",
+    "snippet": "printf(\"Hello World!\");"
+  }
+]

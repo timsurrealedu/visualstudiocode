@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wordle Marathon (No Repeats)</title>
+    <style>
+        /* --- COLORS & THEME (Dark/Hard Mode) --- */
+        :root {
+            --bg-color: #201c29;       
+            --text-color: #e8e6e3;     
+            --tile-border: #4d465e;    
+            --tile-bg: #201c29;
+            --key-bg: #4d465e;         
+            
+            /* Status Colors */
+            --correct-green: #6aaa64;
+            --present-yellow: #c9b458;
+            --absent-grey: #302a3d;
+            
+            /* Buttons */
+            --hint-btn-bg: #905ac4;
+            --hint-text-bg: #352e42;
+            --new-game-btn: #6aaa64;
+        }
+
+        /* --- BASIC LAYOUT --- */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh; 
+            margin: 0;
+            overflow: hidden; 
+        }
+
+        /* --- HEADER (Fixed) --- */
+        header {
+            border-bottom: 1px solid var(--tile-border);
+            width: 100%;
+            text-align: center;
+            padding: 10px 0;
+            flex-shrink: 0;
+            background-color: var(--bg-color);
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        /* --- SCROLLABLE BOARD AREA --- */
+        #board-container {
+            flex-grow: 1;           
+            width: 100%;
+            overflow-y: auto;       
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 20px;
+            padding-bottom: 20px;   
+            min-height: 0;          
+            
+            scrollbar-width: thin;
+            scrollbar-color: var(--tile-border) var(--bg-color);
+        }
+
+        #board-container::-webkit-scrollbar { width: 8px; }
+        #board-container::-webkit-scrollbar-track { background: var(--bg-color); }
+        #board-container::-webkit-scrollbar-thumb { background-color: var(--tile-border); border-radius: 10px; }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-gap: 5px;
+            padding-bottom: 50px; 
+        }
+
+        .tile {
+            width: 50px;
+            height: 50px;
+            border: 2px solid var(--tile-border);
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        /* --- KEYBOARD (Fixed Bottom) --- */
+        #keyboard-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 10px 8px;
+            flex-shrink: 0; 
+            background-color: var(--bg-color);
+            border-top: 1px solid var(--tile-border);
+            z-index: 10;
+        }
+
+        .keyboard-row {
+            display: flex;
+            width: 100%;
+            margin: 0 auto 8px;
+            touch-action: manipulation;
+        }
+
+        .key {
+            font-family: inherit;
+            font-weight: bold;
+            border: 0;
+            padding: 0;
+            margin: 0 3px 0 0;
+            height: 54px;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: var(--key-bg);
+            color: var(--text-color);
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+        }
+
+        .key:last-of-type { margin: 0; }
+        .key.large { flex: 1.5; font-size: 0.8rem; }
+        
+        .key.correct { background-color: var(--correct-green); }
+        .key.present { background-color: var(--present-yellow); }
+        .key.absent { background-color: var(--absent-grey); }
+
+        /* --- CONTROL SECTION (Hints & New Game) --- */
+        #control-section {
+            margin-top: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .action-btn {
+            border: none;
+            padding: 6px 16px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        .action-btn:hover { opacity: 0.9; }
+
+        #hint-btn { background-color: var(--hint-btn-bg); }
+        #restart-btn { 
+            background-color: var(--new-game-btn); 
+            display: none; /* Hidden by default */
+        }
+        
+        #clue-display {
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: var(--hint-text-bg);
+            border-radius: 5px;
+            font-size: 0.9rem;
+            display: none;
+            border: 1px solid #565758;
+            max-width: 300px;
+        }
+        
+        #progress-info {
+            font-size: 0.7rem;
+            color: #818384;
+            margin-top: 3px;
+        }
+
+        /* --- MESSAGES --- */
+        #message-container {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            pointer-events: none;
+        }
+        .message {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            margin-bottom: 5px;
+        }
+
+        /* Animation */
+        .tile.pop { animation: pop 0.1s; }
+        .tile.flip { animation: flip 0.5s ease; }
+        @keyframes pop { 50% { transform: scale(1.1); } }
+        @keyframes flip { 50% { transform: rotateX(90deg); } }
+        
+        /* Mobile Adjustment */
+        @media (max-height: 700px) {
+            .tile { width: 40px; height: 40px; font-size: 1.4rem; }
+            .key { height: 45px; }
+        }
+        
+        /* Tile Status */
+        .tile[data-state="correct"] { background-color: var(--correct-green); border-color: var(--correct-green); }
+        .tile[data-state="present"] { background-color: var(--present-yellow); border-color: var(--present-yellow); }
+        .tile[data-state="absent"] { background-color: var(--absent-grey); border-color: var(--absent-grey); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>MYSTERY WORDLE</h1>
+        <div id="control-section">
+            <div style="display:flex; gap:10px;">
+                <button id="hint-btn" class="action-btn" onclick="toggleHint()">💡 CLUE</button>
+                <button id="restart-btn" class="action-btn" onclick="location.reload()">🔄 Main Lagi</button>
+            </div>
+            <div id="clue-display"></div>
+            <div id="progress-info"></div>
+        </div>
+    </header>
+
+    <div id="message-container"></div>
+
+    <div id="board-container">
+        <div id="board"></div>
+    </div>
+
+    <div id="keyboard-container">
+        <div class="keyboard-row">
+            <button class="key" data-key="q">q</button>
+            <button class="key" data-key="w">w</button>
+            <button class="key" data-key="e">e</button>
+            <button class="key" data-key="r">r</button>
+            <button class="key" data-key="t">t</button>
+            <button class="key" data-key="y">y</button>
+            <button class="key" data-key="u">u</button>
+            <button class="key" data-key="i">i</button>
+            <button class="key" data-key="o">o</button>
+            <button class="key" data-key="p">p</button>
+        </div>
+        <div class="keyboard-row">
+            <div class="spacer" style="flex: 0.5;"></div>
+            <button class="key" data-key="a">a</button>
+            <button class="key" data-key="s">s</button>
+            <button class="key" data-key="d">d</button>
+            <button class="key" data-key="f">f</button>
+            <button class="key" data-key="g">g</button>
+            <button class="key" data-key="h">h</button>
+            <button class="key" data-key="j">j</button>
+            <button class="key" data-key="k">k</button>
+            <button class="key" data-key="l">l</button>
+            <div class="spacer" style="flex: 0.5;"></div>
+        </div>
+        <div class="keyboard-row">
+            <button class="key large" data-key="Enter">Kirim</button>
+            <button class="key" data-key="z">z</button>
+            <button class="key" data-key="x">x</button>
+            <button class="key" data-key="c">c</button>
+            <button class="key" data-key="v">v</button>
+            <button class="key" data-key="b">b</button>
+            <button class="key" data-key="n">n</button>
+            <button class="key" data-key="m">m</button>
+            <button class="key large" data-key="Backspace">⌫</button>
+        </div>
+    </div>
+
+<script>
+/* -------------------------------------------------------------------------
+   DATA KATA SULIT INDONESIA
+   -------------------------------------------------------------------------
+*/
+const GAME_DATA = [
+    { word: "ABADI", clue: "Ingin berkuasa selamanya" },
+    { word: "AKTOR", clue: "Pura-pura sedih di depan kamera" },
+    { word: "BEBAS", clue: "Status hukum kalau punya koneksi" },
+    { word: "CATUT", clue: "Asal pakai nama orang demi proyek" },
+    { word: "CITRA", clue: "Poles wajah agar terlihat merakyat" },
+    { word: "BIAYA", clue: "Cairan pelicin birokrasi" },
+    { word: "DRAMA", clue: "Tontonan pura-pura di gedung dewan" },
+    { word: "DUSTA", clue: "Makanan sehari-hari politisi" },
+    { word: "ETIKA", clue: "Sering dilanggar demi kekuasaan" },
+    { word: "GESER", clue: "Memindahkan anggaran atau jabatan" },
+    { word: "HIBAH", clue: "Pemberian yang kadang mencurigakan" },
+    { word: "HUKUM", clue: "Katanya tajam ke bawah tumpul ke atas" },
+    { word: "IKLAN", clue: "Wajahnya ada di setiap perempatan jalan" },
+    { word: "JANJI", clue: "Manis saat kampanye, lupa saat menjabat" },
+    { word: "JATAH", clue: "Bagian 'kue' proyek untuk kelompok" },
+    { word: "JUJUR", clue: "Sifat langka di dunia politik" },
+    { word: "KABUR", clue: "Lari ke luar negeri saat jadi tersangka" },
+    { word: "KASUS", clue: "Masalah yang tiba-tiba hilang beritanya" },
+    { word: "KURSI", clue: "Benda empuk yang diperebutkan 5 tahun sekali" },
+    { word: "LAHAN", clue: "Tempat mencari untung (basah/kering)" },
+    { word: "MAFIA", clue: "Penguasa bayangan yang mengatur segalanya" },
+    { word: "MASSA", clue: "Dikumpulkan kalau butuh suara saja" },
+    { word: "MODAL", clue: "Uang untuk 'serangan fajar'" },
+    { word: "OBRAL", clue: "Jual murah izin tambang/hutan" },
+    { word: "OKNUM", clue: "Kambing hitam kalau instansi salah" },
+    { word: "LAWAN", clue: "Dulu musuh, sekarang satu koalisi" },
+    { word: "ORDAL", clue: "Jalur pintas masuk instansi (Orang Dalam)" },
+    { word: "PAJAK", clue: "Rakyat wajib bayar, pejabat hobi ngemplang" },
+    { word: "PALSU", clue: "Ijazah atau laporan keuangan" },
+    { word: "PANIK", clue: "Reaksi saat OTT KPK" },
+    { word: "PASAL", clue: "Ayat karet yang bisa dipesan" },
+    { word: "PESTA", clue: "Demokrasi (katanya), padahal buang anggaran" },
+    { word: "RAKUS", clue: "Tidak pernah kenyang makan uang negara" },
+    { word: "WARGA", clue: "Yang disuruh sabar terus" },
+    { word: "RUBAH", clue: "Hewan licik, atau mengganti undang-undang" },
+    { word: "ROBOH", clue: "Gedung sekolah ambruk karena dikorupsi" },
+    { word: "SAKSI", clue: "Tiba-tiba 'sakit' atau 'lupa' di pengadilan" },
+    { word: "SOGOK", clue: "Uang pelicin biar urusan lancar" },
+    { word: "SUARA", clue: "Dibeli dengan sembako murah" },
+    { word: "TIKUS", clue: "Hewan berdasi yang suka ngerat anggaran" },
+    { word: "TULUS", clue: "Slogan kampanye, praktiknya fulus" },
+    { word: "TUNAI", clue: "Cara bayar biar tidak terlacak PPATK" },
+    { word: "VIRAL", clue: "Harus begini dulu baru ditangani polisi" },
+    { word: "WAKIL", clue: "Katanya pelayan rakyat, tapi minta dilayani" },
+    { word: "WARIS", clue: "Jabatan yang diturunkan ke anak cucu" }
+];
+/* -------------------------------------------------------------------------
+   CONFIG - 18 GUESSES
+   ------------------------------------------------------------------------- */
+const MAX_GUESSES = 18;
+const WORD_LENGTH = 5;
+const STORAGE_KEY = 'sandikata_played_words';
+
+let currentGuess = "";
+let remainingGuesses = MAX_GUESSES;
+let targetWord = "";
+let currentClue = "";
+let gameOver = false;
+
+// Initialize Game
+function initGame() {
+    // 1. Get history from local storage
+    let playedWords = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    
+    // 2. Filter available words
+    let availableWords = GAME_DATA.filter(item => !playedWords.includes(item.word));
+
+    // 3. Show progress
+    document.getElementById("progress-info").textContent = 
+        `Kata terselesaikan: ${playedWords.length} / ${GAME_DATA.length}`;
+
+    // 4. Check if game is completed
+    if (availableWords.length === 0) {
+        if(confirm("Luar biasa! Kamu sudah menebak semua 50 kata. Reset ulang?")) {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        } else {
+            showMessage("Semua kata sudah selesai!");
+        }
+        return; 
+    }
+
+    // 5. Pick random word from AVAILABLE list
+    const randomIndex = Math.floor(Math.random() * availableWords.length);
+    const selectedData = availableWords[randomIndex];
+    
+    targetWord = selectedData.word.toUpperCase();
+    currentClue = selectedData.clue;
+    document.getElementById("clue-display").textContent = currentClue;
+    
+    console.log("Solusi:", targetWord); 
+
+    createBoard();
+    setupKeyboard();
+}
+
+function saveProgress(word) {
+    let playedWords = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    if (!playedWords.includes(word)) {
+        playedWords.push(word);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(playedWords));
+    }
+}
+
+function toggleHint() {
+    const display = document.getElementById("clue-display");
+    const btn = document.getElementById("hint-btn");
+    if (display.style.display === "none" || display.style.display === "") {
+        display.style.display = "block";
+        btn.textContent = "🙈 Sembunyikan";
+    } else {
+        display.style.display = "none";
+        btn.textContent = "💡 Lihat Petunjuk";
+    }
+}
+
+function createBoard() {
+    const board = document.getElementById("board");
+    board.innerHTML = ''; 
+
+    for (let i = 0; i < MAX_GUESSES; i++) {
+        for (let j = 0; j < WORD_LENGTH; j++) {
+            let tile = document.createElement("div");
+            tile.classList.add("tile");
+            tile.setAttribute("id", `row-${i}-tile-${j}`);
+            board.appendChild(tile);
+        }
+    }
+}
+
+document.addEventListener("keyup", (e) => {
+    if (gameOver) return;
+    let key = e.key;
+    if (key === "Backspace") { deleteLetter(); return; }
+    if (key === "Enter") { checkGuess(); return; }
+    let found = key.match(/[a-z]/gi);
+    if (!found || found.length > 1) return;
+    insertLetter(key);
+});
+
+function setupKeyboard() {
+    const keys = document.querySelectorAll(".key");
+    keys.forEach(key => {
+        key.addEventListener("click", (e) => {
+            if (gameOver) return;
+            const keyVal = e.target.getAttribute("data-key");
+            if (keyVal === "Enter") { checkGuess(); }
+            else if (keyVal === "Backspace") { deleteLetter(); }
+            else { insertLetter(keyVal); }
+        });
+    });
+}
+
+function insertLetter(key) {
+    if (currentGuess.length < WORD_LENGTH) {
+        currentGuess += key.toUpperCase();
+        let row = MAX_GUESSES - remainingGuesses;
+        let tile = document.getElementById(`row-${row}-tile-${currentGuess.length - 1}`);
+        tile.textContent = key.toUpperCase();
+        tile.classList.add("pop");
+        tile.style.borderColor = "#905ac4"; 
+        setTimeout(() => tile.classList.remove("pop"), 100);
+    }
+}
+
+function deleteLetter() {
+    if (currentGuess.length > 0) {
+        let row = MAX_GUESSES - remainingGuesses;
+        let tile = document.getElementById(`row-${row}-tile-${currentGuess.length - 1}`);
+        tile.textContent = "";
+        tile.style.borderColor = "var(--tile-border)";
+        currentGuess = currentGuess.slice(0, -1);
+    }
+}
+
+function checkGuess() {
+    if (currentGuess.length !== WORD_LENGTH) {
+        showMessage("Huruf kurang!");
+        return;
+    }
+
+    let row = MAX_GUESSES - remainingGuesses;
+    let guessString = currentGuess;
+    let rightGuess = Array.from(targetWord);
+    let currentGuessArray = Array.from(guessString);
+    
+    // Check Green
+    for (let i = 0; i < WORD_LENGTH; i++) {
+        let tile = document.getElementById(`row-${row}-tile-${i}`);
+        let letter = currentGuessArray[i];
+        let key = document.querySelector(`.key[data-key='${letter.toLowerCase()}']`);
+
+        if (letter === rightGuess[i]) {
+            tile.setAttribute("data-state", "correct");
+            if(key) {
+                key.classList.remove("present");
+                key.classList.add("correct");
+            }
+            rightGuess[i] = null; 
+            currentGuessArray[i] = null; 
+        }
+    }
+
+    // Check Yellow/Grey
+    for (let i = 0; i < WORD_LENGTH; i++) {
+        let letter = currentGuessArray[i];
+        if (letter === null) continue; 
+
+        let tile = document.getElementById(`row-${row}-tile-${i}`);
+        let key = document.querySelector(`.key[data-key='${letter.toLowerCase()}']`);
+        let indexInTarget = rightGuess.indexOf(letter);
+
+        if (indexInTarget !== -1) {
+            tile.setAttribute("data-state", "present");
+            if (key && !key.classList.contains("correct")) {
+                key.classList.add("present");
+            }
+            rightGuess[indexInTarget] = null;
+        } else {
+            tile.setAttribute("data-state", "absent");
+            if (key && !key.classList.contains("correct") && !key.classList.contains("present")) {
+                key.classList.add("absent");
+            }
+        }
+    }
+
+    // Animation & Style
+    for (let i = 0; i < WORD_LENGTH; i++) {
+        let tile = document.getElementById(`row-${row}-tile-${i}`);
+        tile.style.animationDelay = `${i * 50}ms`; 
+        tile.classList.add("flip");
+        tile.style.color = "white"; 
+        tile.style.border = "none";
+    }
+
+    remainingGuesses--;
+    
+    if (guessString === targetWord) {
+        showMessage("Luar Biasa!");
+        gameOver = true;
+        saveProgress(targetWord); // SAVE WORD HERE
+        showRestartBtn();
+    } else if (remainingGuesses === 0) {
+        showMessage(`Kalah! Jawabannya: ${targetWord}`);
+        gameOver = true;
+        saveProgress(targetWord); // Also save on loss so they don't get stuck on one word? 
+        // Note: Usually people want to retry a word if they lose. 
+        // If you want to retry the word if you lose, comment out the line above 'saveProgress(targetWord)'.
+        // For now, I will assume "Used" means the game ended for that word.
+        showRestartBtn();
+    } else {
+        // Auto Scroll
+        setTimeout(() => {
+            let nextRow = MAX_GUESSES - remainingGuesses;
+            let nextTile = document.getElementById(`row-${nextRow}-tile-0`);
+            if(nextTile) {
+                nextTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 300);
+    }
+
+    currentGuess = "";
+}
+
+function showRestartBtn() {
+    setTimeout(() => {
+        document.getElementById("restart-btn").style.display = "inline-block";
+        document.getElementById("hint-btn").style.display = "none";
+    }, 1500);
+}
+
+function showMessage(text) {
+    const msgContainer = document.getElementById("message-container");
+    const msg = document.createElement("div");
+    msg.classList.add("message");
+    msg.textContent = text;
+    msg.style.display = "block";
+    msgContainer.innerHTML = ''; 
+    msgContainer.appendChild(msg);
+    setTimeout(() => { msg.style.display = "none"; }, 2500);
+}
+
+// Start
+initGame();
+</script>
+</body>
+</html>
