@@ -231,6 +231,7 @@
             <div style="display:flex; gap:10px;">
                 <button id="hint-btn" class="action-btn" onclick="toggleHint()">💡 CLUE</button>
                 <button id="restart-btn" class="action-btn" onclick="location.reload()">🔄 Main Lagi</button>
+                <button id="reset-btn" class="action-btn" onclick="resetMarathon()" style="background-color: #e74c3c;">🗑️ Reset Progres</button>
             </div>
             <div id="clue-display"></div>
             <div id="progress-info"></div>
@@ -393,6 +394,13 @@ function initGame() {
 
     createBoard();
     setupKeyboard();
+}
+
+function resetMarathon() {
+    if (confirm("Apakah Anda yakin ingin menghapus semua progres dan mengulang dari awal?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    }
 }
 
 function saveProgress(word) {
